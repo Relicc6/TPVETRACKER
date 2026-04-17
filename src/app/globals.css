@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e2e #0a0a0a;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2e2e2e;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #3e3e3e;
+}
+
+body {
+  background-color: #0a0a0a;
+  color: #d4c9b8;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-tarkov-yellow text-tarkov-bg font-semibold px-4 py-2 rounded
+           hover:bg-tarkov-yellow-light transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed text-sm;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border border-tarkov-border text-tarkov-text px-4 py-2 rounded
+           hover:border-tarkov-yellow hover:text-tarkov-yellow transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed text-sm;
+  }
+
+  .card {
+    @apply bg-tarkov-card border border-tarkov-border rounded-lg p-4;
+  }
+
+  .badge-not-started {
+    @apply text-xs px-2 py-0.5 rounded bg-tarkov-surface border border-tarkov-border text-tarkov-muted;
+  }
+
+  .badge-in-progress {
+    @apply text-xs px-2 py-0.5 rounded bg-tarkov-blue/20 border border-tarkov-blue/50 text-blue-300;
+  }
+
+  .badge-completed {
+    @apply text-xs px-2 py-0.5 rounded bg-tarkov-green-dark border border-tarkov-green/50 text-green-300;
+  }
+
+  .input {
+    @apply bg-tarkov-surface border border-tarkov-border text-tarkov-text rounded px-3 py-2
+           focus:outline-none focus:border-tarkov-yellow transition-colors w-full text-sm
+           placeholder:text-tarkov-muted;
+  }
+}
