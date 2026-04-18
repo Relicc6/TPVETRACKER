@@ -86,7 +86,7 @@ export interface TarkovItem {
   buyFor: VendorPrice[]
 }
 
-export type TaskStatus = 'not_started' | 'in_progress' | 'completed'
+export type TaskStatus = 'not_started' | 'in_progress' | 'completed' | 'locked'
 export type TaskProgressMap = Record<string, TaskStatus>
 export type HideoutProgressMap = Record<string, number>
 export type WatchedItems = Record<string, boolean>

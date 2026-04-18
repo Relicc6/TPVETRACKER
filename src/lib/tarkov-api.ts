@@ -5,7 +5,7 @@ const API_URL = 'https://api.tarkov.dev/graphql'
 async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'tpvetracker/1.0' },
     body: JSON.stringify({ query, variables }),
     next: { revalidate: 3600 },
   })

@@ -4,6 +4,7 @@ const KEYS = {
   tasks: 'tpve_task_progress',
   hideout: 'tpve_hideout_progress',
   watched: 'tpve_watched_items',
+  playerLevel: 'tpve_player_level',
 } as const
 
 function load<T>(key: string, fallback: T): T {
@@ -43,4 +44,12 @@ export function loadWatchedItems(): WatchedItems {
 
 export function saveWatchedItems(watched: WatchedItems) {
   save(KEYS.watched, watched)
+}
+
+export function loadPlayerLevel(): number {
+  return load<number>(KEYS.playerLevel, 1)
+}
+
+export function savePlayerLevel(level: number) {
+  save(KEYS.playerLevel, level)
 }
