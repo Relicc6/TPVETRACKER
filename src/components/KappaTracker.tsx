@@ -22,6 +22,32 @@ const STATUS_CLASS: Record<TaskStatus, string> = {
   locked: 'text-xs px-2 py-0.5 rounded bg-tarkov-surface border border-tarkov-border/50 text-tarkov-muted/60',
 }
 
+// ── Prerequisite helpers (cascade completion) ──
+
+function buildPrereqMap(tasks: Task[]): Map<string, string[]> {
+  const map = new Map<string, string[]>()
+  for (const task of tasks) {
+    const prereqs = task.taskRequirements
+      .filter(r => r.status.includes('complete') || r.status.includes('completed'))
+      .map(r => r.task.id)
+    if (prereqs.length) map.set(task.id, prereqs)
+  }
+  return map
+}
+
+function collectPrereqs(ids: string[], prereqMap: Map<string, string[]>): Set<string> {
+  const result = new Set<string>()
+  const queue = [...ids]
+  while (queue.length) {
+    const id = queue.pop()!
+    const prereqs = prereqMap.get(id) ?? []
+    for (const p of prereqs) {
+      if (!result.has(p)) { result.add(p); queue.push(p) }
+    }
+  }
+  return result
+}
+
 // ── Tree building ──
 
 interface TreeNode {
@@ -360,6 +386,13 @@ export default function KappaTracker({ tasks }: { tasks: Task[] }) {
       const idx = STATUS_CYCLE.indexOf(current)
       const next = STATUS_CYCLE[((idx === -1 ? 0 : idx) + 1) % STATUS_CYCLE.length]
       const updated = { ...prev, [taskId]: next }
+      if (next === 'completed') {
+        const prereqMap = buildPrereqMap(tasks)
+        const prereqs = collectPrereqs([taskId], prereqMap)
+        prereqs.forEach(prereqId => {
+          if (updated[prereqId] !== 'completed') updated[prereqId] = 'completed'
+        })
+      }
       saveTaskProgress(updated)
       return updated
     })
