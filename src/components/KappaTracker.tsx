@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { ChevronDown, ChevronUp, Search, Shield } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, Shield, ExternalLink } from 'lucide-react'
+import TaskContextMenu, { wikiUrl } from '@/components/TaskContextMenu'
 import type { Task, TaskProgressMap, TaskStatus } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadKappaItems, saveKappaItems, loadPlayerLevel } from '@/lib/progress'
 
@@ -115,9 +116,16 @@ interface TaskCardProps {
 
 function KappaTaskCard({ task, status, onCycle }: TaskCardProps) {
   const [open, setOpen] = useState(false)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
 
   return (
-    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''}`}>
+    <div
+      className={`group card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''}`}
+      onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) }}
+    >
+      {ctxMenu && (
+        <TaskContextMenu task={task} x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)} />
+      )}
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
           {task.trader.imageLink ? (
@@ -132,6 +140,16 @@ function KappaTaskCard({ task, status, onCycle }: TaskCardProps) {
             <span className={`font-medium text-sm ${status === 'completed' ? 'line-through text-tarkov-muted' : 'text-tarkov-text'}`}>
               {task.name}
             </span>
+            <a
+              href={wikiUrl(task)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="View on Wiki"
+              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 text-tarkov-muted hover:text-tarkov-yellow transition-opacity flex-shrink-0"
+            >
+              <ExternalLink size={11} />
+            </a>
             <span className={STATUS_CLASS[status]}>{STATUS_LABELS[status]}</span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-tarkov-muted">
@@ -192,13 +210,18 @@ function OrgTreeNode({ node, progress, onCycle }: {
   onCycle: (id: string) => void
 }) {
   const status = (progress[node.task.id] ?? 'not_started') as TaskStatus
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
 
   return (
     <li>
+      {ctxMenu && (
+        <TaskContextMenu task={node.task} x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)} />
+      )}
       <div className="tree-node" style={{ width: '9rem' }}>
         <button
           onClick={() => onCycle(node.task.id)}
-          title={`${node.task.name} — ${STATUS_LABELS[status]} (click to cycle)`}
+          onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) }}
+          title={`${node.task.name} — ${STATUS_LABELS[status]} (click to complete, right-click for wiki)`}
           className={`w-full text-left rounded border px-2 py-1.5 transition-all ${
             status === 'completed'
               ? 'bg-tarkov-green-dark/20 border-tarkov-green/40 opacity-50'

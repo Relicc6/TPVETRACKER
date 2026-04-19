@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { ChevronDown, ChevronUp, Search, Lock, Zap } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, Lock, Zap, ExternalLink } from 'lucide-react'
+import TaskContextMenu, { wikiUrl } from '@/components/TaskContextMenu'
 import type { Task, TaskStatus, TaskProgressMap, Trader } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadPlayerLevel, savePlayerLevel } from '@/lib/progress'
 import PlayerProfile from '@/components/PlayerProfile'
@@ -88,16 +89,38 @@ interface TaskRowProps {
 
 function TaskRow({ task, status, onCycle }: TaskRowProps) {
   const [open, setOpen] = useState(false)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const locked = status === 'locked'
 
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY })
+  }
+
   return (
-    <div className={`px-4 py-3 bg-tarkov-card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''} ${locked ? 'opacity-35' : ''}`}>
+    <div
+      className={`group px-4 py-3 bg-tarkov-card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''} ${locked ? 'opacity-35' : ''}`}
+      onContextMenu={handleContextMenu}
+    >
+      {ctxMenu && (
+        <TaskContextMenu task={task} x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)} />
+      )}
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-0.5">
             <span className={`font-medium text-sm ${status === 'completed' ? 'line-through text-tarkov-muted' : locked ? 'text-tarkov-muted/60' : 'text-tarkov-text'}`}>
               {task.name}
             </span>
+            <a
+              href={wikiUrl(task)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="View on Wiki"
+              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 text-tarkov-muted hover:text-tarkov-yellow transition-opacity flex-shrink-0"
+            >
+              <ExternalLink size={11} />
+            </a>
             <span className={STATUS_CLASS[status]}>{STATUS_LABELS[status]}</span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-tarkov-muted">

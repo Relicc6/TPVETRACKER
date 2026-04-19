@@ -29,6 +29,7 @@ export interface Task {
   id: string
   name: string
   normalizedName: string
+  wikiLink: string | null
   trader: Trader
   minPlayerLevel: number
   experience: number

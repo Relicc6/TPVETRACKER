@@ -22,6 +22,7 @@ export async function fetchTasks(): Promise<Task[]> {
         id
         name
         normalizedName
+        wikiLink
         trader { id name imageLink normalizedName }
         minPlayerLevel
         experience
