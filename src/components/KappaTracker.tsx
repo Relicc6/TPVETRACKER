@@ -48,7 +48,7 @@ function collectPrereqs(ids: string[], prereqMap: Map<string, string[]>): Set<st
   return result
 }
 
-// ── Tree building ──
+// ── Tree building (deduplicated — each task appears exactly once) ──
 
 interface TreeNode {
   task: Task
@@ -57,34 +57,54 @@ interface TreeNode {
 
 function buildKappaTree(kappaTasks: Task[]): TreeNode[] {
   const kappaIds = new Set(kappaTasks.map(t => t.id))
-  const taskMap = new Map(kappaTasks.map(t => [t.id, t]))
-  const childrenOf = new Map<string, string[]>()
-  const hasKappaParent = new Set<string>()
+  const taskMap: Record<string, Task> = {}
+  for (const t of kappaTasks) taskMap[t.id] = t
 
+  // Build parent list per task
+  const parentsOf: Record<string, string[]> = {}
   for (const task of kappaTasks) {
     for (const req of task.taskRequirements) {
       if (kappaIds.has(req.task.id) && req.status.some(s => s.includes('complet'))) {
-        if (!childrenOf.has(req.task.id)) childrenOf.set(req.task.id, [])
-        childrenOf.get(req.task.id)!.push(task.id)
-        hasKappaParent.add(task.id)
+        if (!parentsOf[task.id]) parentsOf[task.id] = []
+        parentsOf[task.id].push(req.task.id)
       }
     }
   }
 
-  const roots = kappaTasks.filter(t => !hasKappaParent.has(t.id))
+  // Compute chain depth so we can pick the "deepest" parent for tasks with multiple parents
+  const depthCache: Record<string, number> = {}
+  function getDepth(taskId: string, path: string[]): number {
+    if (depthCache[taskId] !== undefined) return depthCache[taskId]
+    if (path.includes(taskId)) return 0
+    const parents = parentsOf[taskId] ?? []
+    let max = -1
+    for (const p of parents) max = Math.max(max, getDepth(p, [...path, taskId]))
+    depthCache[taskId] = max + 1
+    return depthCache[taskId]
+  }
+  for (const task of kappaTasks) getDepth(task.id, [])
 
-  function buildNode(taskId: string, ancestors: string[] = []): TreeNode | null {
-    if (ancestors.includes(taskId)) return null
-    const task = taskMap.get(taskId)
-    if (!task) return null
-    const newAnc = [...ancestors, taskId]
-    const children = (childrenOf.get(taskId) ?? [])
-      .map(id => buildNode(id, newAnc))
-      .filter((n): n is TreeNode => n !== null)
+  // Assign each task to exactly one parent (the deepest one — avoids duplicates)
+  const canonicalChildren: Record<string, string[]> = {}
+  for (const task of kappaTasks) {
+    const parents = parentsOf[task.id] ?? []
+    if (!parents.length) continue
+    const primary = parents.reduce((best, p) =>
+      (depthCache[p] ?? 0) >= (depthCache[best] ?? 0) ? p : best
+    )
+    if (!canonicalChildren[primary]) canonicalChildren[primary] = []
+    canonicalChildren[primary].push(task.id)
+  }
+
+  const roots = kappaTasks.filter(t => !(parentsOf[t.id]?.length))
+
+  function buildNode(taskId: string): TreeNode {
+    const task = taskMap[taskId]
+    const children = (canonicalChildren[taskId] ?? []).map(buildNode)
     return { task, children }
   }
 
-  return roots.map(t => buildNode(t.id)).filter((n): n is TreeNode => n !== null)
+  return roots.map(t => buildNode(t.id))
 }
 
 // ── Flat task card (for list view) ──
@@ -166,87 +186,72 @@ function KappaTaskCard({ task, status, onCycle }: TaskCardProps) {
   )
 }
 
-// ── Tree node component ──
+// ── Tree node component (compact single-line row) ──
 
 function KappaTreeNode({ node, progress, onCycle }: {
   node: TreeNode
   progress: TaskProgressMap
   onCycle: (id: string) => void
 }) {
-  const [expanded, setExpanded] = useState(true)
   const status = (progress[node.task.id] ?? 'not_started') as TaskStatus
+  // Completed tasks start collapsed; incomplete start expanded
+  const [expanded, setExpanded] = useState(status !== 'completed')
+
+  const dot: Record<TaskStatus, string> = {
+    completed: 'bg-tarkov-green',
+    in_progress: 'bg-blue-400',
+    not_started: 'bg-tarkov-border',
+    locked: 'bg-tarkov-border/30',
+  }
 
   return (
     <div>
-      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
-        status === 'completed'
-          ? 'bg-tarkov-card border-tarkov-border/30 opacity-50'
-          : 'bg-tarkov-card border-tarkov-border/70 hover:border-tarkov-border'
-      }`}>
-        {/* Expand/collapse */}
-        <div className="w-5 flex-shrink-0 flex items-center justify-center">
+      <div className={`flex items-center gap-2 py-1.5 px-2 rounded group hover:bg-tarkov-surface/60 transition-colors ${status === 'completed' ? 'opacity-40' : ''}`}>
+        {/* Expand / collapse or leaf indicator */}
+        <div className="w-4 flex-shrink-0 flex items-center justify-center">
           {node.children.length > 0 ? (
-            <button
-              onClick={() => setExpanded(e => !e)}
-              className="text-tarkov-muted hover:text-tarkov-yellow transition-colors"
-              title={expanded ? 'Collapse' : 'Expand'}
-            >
-              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <button onClick={() => setExpanded(e => !e)} className="text-tarkov-muted hover:text-tarkov-yellow transition-colors">
+              {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
             </button>
-          ) : null}
-        </div>
-
-        {/* Trader portrait (small) */}
-        <div className="flex-shrink-0 w-7 h-7 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
-          {node.task.trader.imageLink ? (
-            <Image src={node.task.trader.imageLink} alt={node.task.trader.name} width={28} height={28} className="w-full h-full object-cover" unoptimized />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-tarkov-muted">
-              {node.task.trader.name[0]}
-            </div>
+            <div className="w-1 h-1 rounded-full bg-tarkov-border/40 mx-auto" />
           )}
         </div>
 
-        {/* Task info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`text-sm font-medium ${status === 'completed' ? 'line-through text-tarkov-muted' : 'text-tarkov-text'}`}>
-              {node.task.name}
-            </span>
-            <span className={STATUS_CLASS[status]}>{STATUS_LABELS[status]}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-tarkov-muted mt-0.5">
-            <span className="text-tarkov-yellow/80">{node.task.trader.name}</span>
-            {node.task.minPlayerLevel > 0 && <span>Lvl {node.task.minPlayerLevel}+</span>}
-            {node.children.length > 0 && (
-              <span className="text-tarkov-muted/50">→ {node.children.length} unlock{node.children.length !== 1 ? 's' : ''}</span>
-            )}
-          </div>
-        </div>
+        {/* Status dot */}
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dot[status]}`} />
 
-        {/* Checkbox */}
+        {/* Task name */}
+        <span className={`text-sm flex-1 min-w-0 truncate ${status === 'completed' ? 'line-through text-tarkov-muted' : 'text-tarkov-text'}`}>
+          {node.task.name}
+        </span>
+
+        {/* Trader name */}
+        <span className="text-xs text-tarkov-yellow/70 flex-shrink-0 hidden sm:block">{node.task.trader.name}</span>
+
+        {/* Checkbox — always visible when done/in-progress, hover-only otherwise */}
         <button
           onClick={() => onCycle(node.task.id)}
-          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+          className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all ${
             status === 'completed'
               ? 'bg-tarkov-green border-tarkov-green'
               : status === 'in_progress'
-              ? 'bg-tarkov-blue/30 border-tarkov-blue'
-              : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
+              ? 'bg-blue-400/30 border-blue-400'
+              : 'border-tarkov-border hover:border-tarkov-yellow opacity-0 group-hover:opacity-100'
           }`}
           title="Cycle status"
         >
           {status === 'completed' && (
-            <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5" stroke="currentColor" strokeWidth="2">
               <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
-          {status === 'in_progress' && <div className="w-2 h-2 rounded-sm bg-blue-400" />}
+          {status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-sm bg-blue-400" />}
         </button>
       </div>
 
       {expanded && node.children.length > 0 && (
-        <div className="ml-5 mt-1 pl-3 border-l border-tarkov-border/40 space-y-1">
+        <div className="ml-4 pl-3 border-l border-tarkov-border/30">
           {node.children.map(child => (
             <KappaTreeNode key={child.task.id} node={child} progress={progress} onCycle={onCycle} />
           ))}
