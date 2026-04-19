@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Target, Building2, TrendingUp, LogIn, LayoutDashboard } from 'lucide-react'
+import { Target, Building2, TrendingUp, LogIn, LayoutDashboard, Shield } from 'lucide-react'
 
 const navLinks = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tasks', label: 'Tasks', icon: Target },
   { href: '/hideout', label: 'Hideout', icon: Building2 },
+  { href: '/kappa', label: 'Kappa', icon: Shield },
   { href: '/prices', label: 'Flea Market', icon: TrendingUp },
 ]
 

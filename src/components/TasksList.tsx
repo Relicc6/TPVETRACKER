@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Search, Filter, Lock, Zap } from 'lucide-react'
 import type { Task, TaskStatus, TaskProgressMap } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadPlayerLevel, savePlayerLevel } from '@/lib/progress'
 import PlayerProfile from '@/components/PlayerProfile'
+import ImageTaskImport from '@/components/ImageTaskImport'
 
 const MANUAL_CYCLE: TaskStatus[] = ['not_started', 'in_progress', 'completed']
 
@@ -343,10 +344,19 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
           </span>
         </button>
         {showAutoDetect && (
-          <div className="mt-3 pt-3 border-t border-tarkov-border space-y-2">
+          <div className="mt-3 pt-3 border-t border-tarkov-border space-y-3">
             <p className="text-xs text-tarkov-muted">
-              Select the tasks currently in your journal. All prerequisite tasks will be automatically marked as completed.
+              Select the tasks currently in your journal — or upload a screenshot and Claude will detect them automatically.
+              All prerequisite tasks will be marked as completed.
             </p>
+            <ImageTaskImport
+              tasks={tasks}
+              onApply={(ids) => {
+                ids.forEach(id => {
+                  if (!activeTaskIds.includes(id)) toggleActiveTask(id)
+                })
+              }}
+            />
             <ActiveTaskSearch tasks={tasks} activeIds={activeTaskIds} onToggle={toggleActiveTask} />
           </div>
         )}

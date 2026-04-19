@@ -36,6 +36,7 @@ export async function fetchTasks(): Promise<Task[]> {
           task { id name }
           status
         }
+        kappaRequired
       }
     }
   `)

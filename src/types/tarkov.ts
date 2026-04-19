@@ -25,6 +25,7 @@ export interface Task {
   map: { name: string } | null
   objectives: TaskObjective[]
   taskRequirements: TaskRequirement[]
+  kappaRequired: boolean
 }
 
 export interface HideoutItemRequirement {
