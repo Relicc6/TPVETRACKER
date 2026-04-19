@@ -330,8 +330,37 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
     [tasks, playerLevel, activeTaskIds, manualProgress]
   )
 
-  // Group all tasks by trader, sorted by level within each group
+  // Group all tasks by trader, sorted by unlock chain order within each group
   const traderGroups = useMemo(() => {
+    // Compute each task's depth in the global prerequisite chain
+    // (tasks with no prereqs = depth 0, tasks requiring those = depth 1, etc.)
+    const taskIds = new Set(tasks.map(t => t.id))
+    const prereqsOf: Record<string, string[]> = {}
+    for (const task of tasks) {
+      prereqsOf[task.id] = task.taskRequirements
+        .filter(r => taskIds.has(r.task.id) && r.status.some(s => s.includes('complet')))
+        .map(r => r.task.id)
+    }
+
+    const depthCache: Record<string, number> = {}
+    function getDepth(taskId: string, path: string[]): number {
+      if (depthCache[taskId] !== undefined) return depthCache[taskId]
+      if (path.includes(taskId)) return 0
+      const prereqs = prereqsOf[taskId] ?? []
+      let maxPrereqDepth = -1
+      const newPath = [...path, taskId]
+      for (const id of prereqs) {
+        const d = getDepth(id, newPath)
+        if (d > maxPrereqDepth) maxPrereqDepth = d
+      }
+      depthCache[taskId] = maxPrereqDepth + 1
+      return depthCache[taskId]
+    }
+    for (const task of tasks) {
+      if (depthCache[task.id] === undefined) getDepth(task.id, [])
+    }
+
+    // Group by trader then sort by (chain depth, minPlayerLevel)
     const groups: Record<string, { trader: Trader; tasks: Task[] }> = {}
     for (const task of tasks) {
       if (!groups[task.trader.id]) {
@@ -342,7 +371,12 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
     return Object.values(groups)
       .map(group => ({
         ...group,
-        tasks: [...group.tasks].sort((a, b) => a.minPlayerLevel - b.minPlayerLevel),
+        tasks: [...group.tasks].sort((a, b) => {
+          const da = depthCache[a.id] ?? 0
+          const db = depthCache[b.id] ?? 0
+          if (da !== db) return da - db
+          return a.minPlayerLevel - b.minPlayerLevel
+        }),
       }))
       .sort((a, b) => a.trader.name.localeCompare(b.trader.name))
   }, [tasks])
