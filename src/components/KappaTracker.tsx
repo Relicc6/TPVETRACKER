@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { ChevronDown, ChevronUp, Search, Shield } from 'lucide-react'
 import type { Task, TaskProgressMap, TaskStatus } from '@/types/tarkov'
@@ -317,6 +317,139 @@ function CollectorItemsTab({ task, collected, onToggle }: {
   )
 }
 
+// ── Zoomable/pannable canvas for the tree ──
+
+function ZoomableTree({ children }: { children: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [zoom, setZoom] = useState(0.75)
+  const [pan, setPan] = useState({ x: 0, y: 16 })
+  const stateRef = useRef({ zoom: 0.75, pan: { x: 0, y: 16 } })
+  stateRef.current = { zoom, pan }
+  const dragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+
+  // Center tree horizontally after first paint
+  useEffect(() => {
+    const container = containerRef.current
+    const content = contentRef.current
+    if (!container || !content) return
+    const z = stateRef.current.zoom
+    const px = Math.max(0, (container.clientWidth - content.scrollWidth * z) / 2)
+    setPan({ x: px, y: 16 })
+    stateRef.current.pan = { x: px, y: 16 }
+  }, [])
+
+  // Non-passive wheel handler so we can preventDefault and stop page scroll
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const { zoom: z, pan: p } = stateRef.current
+      const factor = e.deltaY < 0 ? 1.12 : 0.88
+      const newZoom = Math.min(3, Math.max(0.12, z * factor))
+      // Keep the content point under the cursor fixed
+      const contentX = (cx - p.x) / z
+      const contentY = (cy - p.y) / z
+      const newPan = { x: cx - contentX * newZoom, y: cy - contentY * newZoom }
+      setZoom(newZoom)
+      setPan(newPan)
+      stateRef.current = { zoom: newZoom, pan: newPan }
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
+
+  function onMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return
+    dragging.current = true
+    if (containerRef.current) containerRef.current.style.cursor = 'grabbing'
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }
+    e.preventDefault()
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (!dragging.current) return
+    const dx = e.clientX - dragStart.current.x
+    const dy = e.clientY - dragStart.current.y
+    const newPan = { x: dragStart.current.panX + dx, y: dragStart.current.panY + dy }
+    setPan(newPan)
+    stateRef.current.pan = newPan
+  }
+
+  function stopDrag() {
+    dragging.current = false
+    if (containerRef.current) containerRef.current.style.cursor = 'grab'
+  }
+
+  function resetView() {
+    const container = containerRef.current
+    const content = contentRef.current
+    const z = 0.75
+    const px = container && content ? Math.max(0, (container.clientWidth - content.scrollWidth * z) / 2) : 0
+    setZoom(z)
+    setPan({ x: px, y: 16 })
+    stateRef.current = { zoom: z, pan: { x: px, y: 16 } }
+  }
+
+  function adjustZoom(factor: number) {
+    const z = Math.min(3, Math.max(0.12, stateRef.current.zoom * factor))
+    setZoom(z)
+    stateRef.current.zoom = z
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden rounded-lg border border-tarkov-border bg-tarkov-bg"
+      style={{ height: '65vh', minHeight: '420px', cursor: 'grab', userSelect: 'none' }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={stopDrag}
+      onMouseLeave={stopDrag}
+    >
+      <div
+        ref={contentRef}
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: '0 0',
+          willChange: 'transform',
+        }}
+      >
+        {children}
+      </div>
+
+      {/* Zoom controls — stopPropagation so clicks don't start a drag */}
+      <div
+        className="absolute bottom-3 right-3 flex items-center gap-1 bg-tarkov-card/90 border border-tarkov-border rounded px-2 py-1"
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <button
+          onClick={() => adjustZoom(0.8)}
+          className="w-5 h-5 flex items-center justify-center text-tarkov-muted hover:text-tarkov-yellow font-mono text-base leading-none"
+        >−</button>
+        <button
+          onClick={resetView}
+          className="text-xs text-tarkov-muted hover:text-tarkov-text font-mono w-9 text-center"
+          title="Reset view"
+        >{Math.round(zoom * 100)}%</button>
+        <button
+          onClick={() => adjustZoom(1.2)}
+          className="w-5 h-5 flex items-center justify-center text-tarkov-muted hover:text-tarkov-yellow font-mono text-base leading-none"
+        >+</button>
+      </div>
+
+      <div className="absolute top-2 left-3 text-[10px] text-tarkov-muted/40 pointer-events-none select-none">
+        scroll to zoom · drag to pan
+      </div>
+    </div>
+  )
+}
+
 // ── KappaTracker ──
 
 type KappaTab = 'tasks' | 'tree' | 'collector'
@@ -492,13 +625,15 @@ export default function KappaTracker({ tasks }: { tasks: Task[] }) {
           {kappaTree.length === 0 ? (
             <div className="card text-center text-tarkov-muted py-10 text-sm">No tree data available.</div>
           ) : (
-            <div className="org-tree">
-              <ul>
-                {kappaTree.map(node => (
-                  <OrgTreeNode key={node.task.id} node={node} progress={progress} onCycle={cycleStatus} />
-                ))}
-              </ul>
-            </div>
+            <ZoomableTree>
+              <div className="org-tree" style={{ overflow: 'visible', paddingBottom: '2rem' }}>
+                <ul>
+                  {kappaTree.map(node => (
+                    <OrgTreeNode key={node.task.id} node={node} progress={progress} onCycle={cycleStatus} />
+                  ))}
+                </ul>
+              </div>
+            </ZoomableTree>
           )}
         </div>
       )}
