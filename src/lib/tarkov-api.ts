@@ -31,6 +31,11 @@ export async function fetchTasks(): Promise<Task[]> {
           description
           type
           optional
+          ... on TaskObjectiveItem {
+            items { id name shortName iconLink }
+            count
+            foundInRaid
+          }
         }
         taskRequirements {
           task { id name }

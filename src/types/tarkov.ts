@@ -10,6 +10,14 @@ export interface TaskObjective {
   description: string
   type: string
   optional: boolean
+  items?: Array<{
+    id: string
+    name: string
+    shortName: string
+    iconLink: string | null
+  }>
+  count?: number
+  foundInRaid?: boolean
 }
 
 export interface TaskRequirement {

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { ChevronDown, ChevronUp, Search, Filter, Lock, Zap } from 'lucide-react'
-import type { Task, TaskStatus, TaskProgressMap } from '@/types/tarkov'
+import { ChevronDown, ChevronUp, Search, Lock, Zap } from 'lucide-react'
+import type { Task, TaskStatus, TaskProgressMap, Trader } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadPlayerLevel, savePlayerLevel } from '@/lib/progress'
 import PlayerProfile from '@/components/PlayerProfile'
 import ImageTaskImport from '@/components/ImageTaskImport'
@@ -24,7 +24,6 @@ const STATUS_CLASS: Record<TaskStatus, string> = {
   locked: 'text-xs px-2 py-0.5 rounded bg-tarkov-surface border border-tarkov-border/50 text-tarkov-muted/60',
 }
 
-// Build map: taskId → array of prerequisite taskIds that must be "completed"
 function buildPrereqMap(tasks: Task[]): Map<string, string[]> {
   const map = new Map<string, string[]>()
   for (const task of tasks) {
@@ -36,7 +35,6 @@ function buildPrereqMap(tasks: Task[]): Map<string, string[]> {
   return map
 }
 
-// Recursively collect all transitive prerequisites of a set of task IDs
 function collectPrereqs(ids: string[], prereqMap: Map<string, string[]>): Set<string> {
   const completed = new Set<string>()
   const queue = [...ids]
@@ -53,7 +51,6 @@ function collectPrereqs(ids: string[], prereqMap: Map<string, string[]>): Set<st
   return completed
 }
 
-// Auto-detect progress from player level + active tasks
 function autoDetectProgress(
   tasks: Task[],
   playerLevel: number,
@@ -61,14 +58,11 @@ function autoDetectProgress(
   manualProgress: TaskProgressMap
 ): TaskProgressMap {
   const prereqMap = buildPrereqMap(tasks)
-
-  // All prerequisites of active tasks are completed
   const autoCompleted = collectPrereqs(activeTaskIds, prereqMap)
 
   const result: TaskProgressMap = {}
   for (const task of tasks) {
     const manual = manualProgress[task.id]
-    // Manual overrides always win
     if (manual && manual !== 'locked') {
       result[task.id] = manual
       continue
@@ -86,47 +80,29 @@ function autoDetectProgress(
   return result
 }
 
-interface TaskCardProps {
+// ── TaskRow ── compact row for inside trader sections (no portrait)
+
+interface TaskRowProps {
   task: Task
   status: TaskStatus
   onCycle: () => void
 }
 
-function TaskCard({ task, status, onCycle }: TaskCardProps) {
+function TaskRow({ task, status, onCycle }: TaskRowProps) {
   const [open, setOpen] = useState(false)
   const locked = status === 'locked'
 
   return (
-    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''} ${locked ? 'opacity-35' : ''}`}>
+    <div className={`px-4 py-3 bg-tarkov-card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''} ${locked ? 'opacity-35' : ''}`}>
       <div className="flex items-start gap-3">
-        {/* Trader portrait */}
-        <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
-          {task.trader.imageLink ? (
-            <Image
-              src={task.trader.imageLink}
-              alt={task.trader.name}
-              width={40}
-              height={40}
-              className="w-full h-full object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-tarkov-muted text-xs font-bold">
-              {task.trader.name[0]}
-            </div>
-          )}
-        </div>
-
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-0.5">
             <span className={`font-medium text-sm ${status === 'completed' ? 'line-through text-tarkov-muted' : locked ? 'text-tarkov-muted/60' : 'text-tarkov-text'}`}>
               {task.name}
             </span>
             <span className={STATUS_CLASS[status]}>{STATUS_LABELS[status]}</span>
           </div>
-
           <div className="flex flex-wrap items-center gap-3 text-xs text-tarkov-muted">
-            <span className="text-tarkov-yellow font-medium">{task.trader.name}</span>
             {task.map && <span>{task.map.name}</span>}
             {task.minPlayerLevel > 0 && (
               <span className={locked ? 'text-red-400/70' : ''}>Lvl {task.minPlayerLevel}+</span>
@@ -135,17 +111,15 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
               <span className="text-purple-400">{task.experience.toLocaleString()} XP</span>
             )}
           </div>
-
           {task.objectives.length > 0 && (
             <button
               onClick={() => setOpen(o => !o)}
-              className="flex items-center gap-1 mt-2 text-xs text-tarkov-muted hover:text-tarkov-text transition-colors"
+              className="flex items-center gap-1 mt-1.5 text-xs text-tarkov-muted hover:text-tarkov-text transition-colors"
             >
               {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               {task.objectives.length} objective{task.objectives.length !== 1 ? 's' : ''}
             </button>
           )}
-
           {open && (
             <ul className="mt-2 space-y-1">
               {task.objectives.map(obj => (
@@ -160,8 +134,6 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
             </ul>
           )}
         </div>
-
-        {/* Checkbox */}
         <button
           onClick={locked ? undefined : onCycle}
           disabled={locked}
@@ -174,7 +146,7 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
               ? 'bg-tarkov-blue/30 border-tarkov-blue'
               : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
           }`}
-          title={locked ? `Requires level ${task.minPlayerLevel}` : `Mark as ${MANUAL_CYCLE[(MANUAL_CYCLE.indexOf(status as typeof MANUAL_CYCLE[number]) + 1) % 3]}`}
+          title={locked ? `Requires level ${task.minPlayerLevel}` : 'Cycle status'}
         >
           {locked && <Lock size={9} className="text-tarkov-muted/60" />}
           {status === 'completed' && (
@@ -189,7 +161,77 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
   )
 }
 
-// Active task search/select dropdown
+// ── TraderSection ── collapsible section per trader
+
+interface TraderSectionProps {
+  trader: Trader
+  allTasks: Task[]
+  visibleTasks: Task[]
+  progress: TaskProgressMap
+  onCycle: (id: string) => void
+  defaultOpen: boolean
+}
+
+function TraderSection({ trader, allTasks, visibleTasks, progress, onCycle, defaultOpen }: TraderSectionProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  const completedCount = allTasks.filter(t => progress[t.id] === 'completed').length
+  const allDone = completedCount === allTasks.length
+  const pct = allTasks.length ? (completedCount / allTasks.length) * 100 : 0
+
+  return (
+    <div className="rounded-lg border border-tarkov-border overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-tarkov-card hover:bg-tarkov-surface/70 transition-colors"
+      >
+        <div className="flex-shrink-0 w-9 h-9 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
+          {trader.imageLink ? (
+            <Image src={trader.imageLink} alt={trader.name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-tarkov-muted">
+              {trader.name[0]}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`text-sm font-semibold ${allDone ? 'text-green-400' : 'text-tarkov-text'}`}>{trader.name}</span>
+            <span className="text-xs text-tarkov-muted ml-auto">{completedCount} / {allTasks.length}</span>
+          </div>
+          <div className="h-1 bg-tarkov-surface rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${allDone ? 'bg-tarkov-green' : 'bg-tarkov-yellow'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+        {open
+          ? <ChevronUp size={14} className="flex-shrink-0 text-tarkov-muted" />
+          : <ChevronDown size={14} className="flex-shrink-0 text-tarkov-muted" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-tarkov-border divide-y divide-tarkov-border/40">
+          {visibleTasks.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-tarkov-muted">No tasks match current filters.</p>
+          ) : (
+            visibleTasks.map(task => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                status={progress[task.id] ?? 'not_started'}
+                onCycle={() => onCycle(task.id)}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ActiveTaskSearch ──
+
 function ActiveTaskSearch({
   tasks,
   activeIds,
@@ -242,9 +284,7 @@ function ActiveTaskSearch({
                   <span className="text-sm text-tarkov-text">{task.name}</span>
                   <span className="ml-2 text-xs text-tarkov-yellow">{task.trader.name}</span>
                 </div>
-                {activeIds.includes(task.id) && (
-                  <span className="text-xs text-blue-400">active</span>
-                )}
+                {activeIds.includes(task.id) && <span className="text-xs text-blue-400">active</span>}
               </button>
             ))}
           </div>
@@ -270,14 +310,13 @@ function ActiveTaskSearch({
   )
 }
 
-const ALL = 'All'
+// ── TasksList ──
 
 export default function TasksList({ tasks }: { tasks: Task[] }) {
   const [playerLevel, setPlayerLevel] = useState(1)
   const [activeTaskIds, setActiveTaskIds] = useState<string[]>([])
   const [manualProgress, setManualProgress] = useState<TaskProgressMap>({})
   const [search, setSearch] = useState('')
-  const [traderFilter, setTraderFilter] = useState(ALL)
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all')
   const [showAutoDetect, setShowAutoDetect] = useState(false)
 
@@ -291,24 +330,41 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
     [tasks, playerLevel, activeTaskIds, manualProgress]
   )
 
-  const traders = useMemo(
-    () => [ALL, ...Array.from(new Set(tasks.map(t => t.trader.name))).sort()],
-    [tasks]
-  )
+  // Group all tasks by trader, sorted by level within each group
+  const traderGroups = useMemo(() => {
+    const groups: Record<string, { trader: Trader; tasks: Task[] }> = {}
+    for (const task of tasks) {
+      if (!groups[task.trader.id]) {
+        groups[task.trader.id] = { trader: task.trader, tasks: [] }
+      }
+      groups[task.trader.id].tasks.push(task)
+    }
+    return Object.values(groups)
+      .map(group => ({
+        ...group,
+        tasks: [...group.tasks].sort((a, b) => a.minPlayerLevel - b.minPlayerLevel),
+      }))
+      .sort((a, b) => a.trader.name.localeCompare(b.trader.name))
+  }, [tasks])
 
-  const filtered = useMemo(() => {
+  // Apply search + status filter within each group
+  const filteredGroups = useMemo(() => {
     const q = search.toLowerCase()
-    return tasks.filter(t => {
-      if (search && !t.name.toLowerCase().includes(q)) return false
-      if (traderFilter !== ALL && t.trader.name !== traderFilter) return false
-      const status = progress[t.id] ?? 'not_started'
-      if (statusFilter !== 'all' && status !== statusFilter) return false
-      return true
-    })
-  }, [tasks, search, traderFilter, statusFilter, progress])
+    const hasFilter = !!search || statusFilter !== 'all'
+    return traderGroups.map(group => ({
+      ...group,
+      visibleTasks: group.tasks.filter(t => {
+        if (search && !t.name.toLowerCase().includes(q)) return false
+        const s = progress[t.id] ?? 'not_started'
+        if (statusFilter !== 'all' && s !== statusFilter) return false
+        return true
+      }),
+    })).filter(group => !hasFilter || group.visibleTasks.length > 0)
+  }, [traderGroups, search, statusFilter, progress])
 
   const completedCount = tasks.filter(t => progress[t.id] === 'completed').length
   const lockedCount = tasks.filter(t => progress[t.id] === 'locked').length
+  const shownCount = filteredGroups.reduce((acc, g) => acc + g.visibleTasks.length, 0)
 
   function handleLevelChange(level: number) {
     setPlayerLevel(level)
@@ -359,9 +415,7 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
         >
           <Zap size={14} className="text-tarkov-yellow" />
           <span className="text-sm font-medium text-tarkov-text">Auto-detect from active tasks</span>
-          <span className="text-xs text-tarkov-muted ml-auto">
-            {showAutoDetect ? 'hide' : 'show'}
-          </span>
+          <span className="text-xs text-tarkov-muted ml-auto">{showAutoDetect ? 'hide' : 'show'}</span>
         </button>
         {showAutoDetect && (
           <div className="mt-3 pt-3 border-t border-tarkov-border space-y-3">
@@ -392,16 +446,6 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="relative">
-          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tarkov-muted pointer-events-none" />
-          <select
-            className="input pl-9 pr-8 appearance-none cursor-pointer"
-            value={traderFilter}
-            onChange={e => setTraderFilter(e.target.value)}
-          >
-            {traders.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
         <select
           className="input appearance-none cursor-pointer"
           value={statusFilter}
@@ -416,19 +460,22 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
       </div>
 
       <p className="text-xs text-tarkov-muted">
-        Showing {filtered.length} of {tasks.length} tasks · click checkbox to cycle status manually
+        {shownCount} task{shownCount !== 1 ? 's' : ''} across {filteredGroups.length} trader{filteredGroups.length !== 1 ? 's' : ''} · click checkbox to cycle status
       </p>
 
       <div className="space-y-2">
-        {filtered.length === 0 ? (
+        {filteredGroups.length === 0 ? (
           <div className="card text-center text-tarkov-muted py-10 text-sm">No tasks found.</div>
         ) : (
-          filtered.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              status={progress[task.id] ?? 'not_started'}
-              onCycle={() => cycleStatus(task.id)}
+          filteredGroups.map(group => (
+            <TraderSection
+              key={group.trader.id}
+              trader={group.trader}
+              allTasks={group.tasks}
+              visibleTasks={group.visibleTasks}
+              progress={progress}
+              onCycle={cycleStatus}
+              defaultOpen={false}
             />
           ))
         )}

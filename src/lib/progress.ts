@@ -53,3 +53,11 @@ export function loadPlayerLevel(): number {
 export function savePlayerLevel(level: number) {
   save(KEYS.playerLevel, level)
 }
+
+export function loadKappaItems(): Record<string, boolean> {
+  return load<Record<string, boolean>>('tpve_kappa_items', {})
+}
+
+export function saveKappaItems(items: Record<string, boolean>) {
+  save('tpve_kappa_items', items)
+}
