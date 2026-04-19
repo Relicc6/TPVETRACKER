@@ -4,9 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { ChevronDown, ChevronUp, Search, Shield } from 'lucide-react'
 import type { Task, TaskProgressMap, TaskStatus } from '@/types/tarkov'
-import { loadTaskProgress, saveTaskProgress, loadKappaItems, saveKappaItems } from '@/lib/progress'
-
-const STATUS_CYCLE: TaskStatus[] = ['not_started', 'in_progress', 'completed']
+import { loadTaskProgress, saveTaskProgress, loadKappaItems, saveKappaItems, loadPlayerLevel } from '@/lib/progress'
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   not_started: 'Not Started',
@@ -459,6 +457,7 @@ const TRADERS = ['All', 'Prapor', 'Therapist', 'Skier', 'Peacekeeper', 'Mechanic
 export default function KappaTracker({ tasks }: { tasks: Task[] }) {
   const [progress, setProgress] = useState<TaskProgressMap>({})
   const [collectedItems, setCollectedItems] = useState<Record<string, boolean>>({})
+  const [playerLevel, setPlayerLevel] = useState(1)
   const [tab, setTab] = useState<KappaTab>('tasks')
   const [search, setSearch] = useState('')
   const [traderFilter, setTraderFilter] = useState('All')
@@ -471,6 +470,7 @@ export default function KappaTracker({ tasks }: { tasks: Task[] }) {
   useEffect(() => {
     setProgress(loadTaskProgress())
     setCollectedItems(loadKappaItems())
+    setPlayerLevel(loadPlayerLevel())
   }, [])
 
   const completedCount = kappaTasks.filter(t => (progress[t.id] ?? 'not_started') === 'completed').length
@@ -491,15 +491,26 @@ export default function KappaTracker({ tasks }: { tasks: Task[] }) {
   function cycleStatus(taskId: string) {
     setProgress(prev => {
       const current = (prev[taskId] ?? 'not_started') as TaskStatus
-      const idx = STATUS_CYCLE.indexOf(current)
-      const next = STATUS_CYCLE[((idx === -1 ? 0 : idx) + 1) % STATUS_CYCLE.length]
+      // Single click: any non-completed → completed, completed → not_started
+      const next: TaskStatus = current === 'completed' ? 'not_started' : 'completed'
       const updated = { ...prev, [taskId]: next }
       if (next === 'completed') {
+        // Cascade: mark all transitive prerequisites as completed
         const prereqMap = buildPrereqMap(tasks)
         const prereqs = collectPrereqs([taskId], prereqMap)
         prereqs.forEach(prereqId => {
           if (updated[prereqId] !== 'completed') updated[prereqId] = 'completed'
         })
+        // Auto-unlock: kappa tasks whose prerequisites are now all done → in_progress
+        for (const task of kappaTasks) {
+          if (updated[task.id] === 'completed' || updated[task.id] === 'in_progress') continue
+          if (task.minPlayerLevel > playerLevel) continue
+          const taskPrereqs = prereqMap.get(task.id) ?? []
+          if (!taskPrereqs.length) continue
+          if (taskPrereqs.every(p => updated[p] === 'completed')) {
+            updated[task.id] = 'in_progress'
+          }
+        }
       }
       saveTaskProgress(updated)
       return updated

@@ -8,8 +8,6 @@ import { loadTaskProgress, saveTaskProgress, loadPlayerLevel, savePlayerLevel } 
 import PlayerProfile from '@/components/PlayerProfile'
 import ImageTaskImport from '@/components/ImageTaskImport'
 
-const MANUAL_CYCLE: TaskStatus[] = ['not_started', 'in_progress', 'completed']
-
 const STATUS_LABELS: Record<TaskStatus, string> = {
   not_started: 'Not Started',
   in_progress: 'In Progress',
@@ -414,17 +412,27 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
   function cycleStatus(taskId: string) {
     const current = progress[taskId] ?? 'not_started'
     if (current === 'locked') return
-    const idx = MANUAL_CYCLE.indexOf(current as typeof MANUAL_CYCLE[number])
-    const next = MANUAL_CYCLE[((idx === -1 ? 0 : idx) + 1) % MANUAL_CYCLE.length]
+    // Single click: any non-completed → completed, completed → not_started
+    const next: TaskStatus = current === 'completed' ? 'not_started' : 'completed'
     setManualProgress(prev => {
       const updated = { ...prev, [taskId]: next }
-      // When marking complete, cascade to all transitive prerequisites
       if (next === 'completed') {
+        // Cascade: mark all transitive prerequisites as completed
         const prereqMap = buildPrereqMap(tasks)
         const prereqs = collectPrereqs([taskId], prereqMap)
         prereqs.forEach(prereqId => {
           if (updated[prereqId] !== 'completed') updated[prereqId] = 'completed'
         })
+        // Auto-unlock: any task whose prerequisites are now all done → in_progress
+        for (const task of tasks) {
+          if (updated[task.id] === 'completed' || updated[task.id] === 'in_progress') continue
+          if (task.minPlayerLevel > playerLevel) continue
+          const taskPrereqs = prereqMap.get(task.id) ?? []
+          if (!taskPrereqs.length) continue
+          if (taskPrereqs.every(p => updated[p] === 'completed')) {
+            updated[task.id] = 'in_progress'
+          }
+        }
       }
       saveTaskProgress(updated)
       return updated
@@ -502,7 +510,7 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
       </div>
 
       <p className="text-xs text-tarkov-muted">
-        {shownCount} task{shownCount !== 1 ? 's' : ''} across {filteredGroups.length} trader{filteredGroups.length !== 1 ? 's' : ''} · click checkbox to cycle status
+        {shownCount} task{shownCount !== 1 ? 's' : ''} across {filteredGroups.length} trader{filteredGroups.length !== 1 ? 's' : ''} · click to complete · click again to undo
       </p>
 
       <div className="space-y-2">
