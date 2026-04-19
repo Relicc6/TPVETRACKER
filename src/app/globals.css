@@ -69,3 +69,106 @@ body {
            placeholder:text-tarkov-muted;
   }
 }
+
+/* ── Kappa org-chart tree ── */
+.org-tree {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 1.5rem;
+}
+
+/* Each level's child list */
+.org-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 1.25rem 0 0 0;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+/* Vertical line from parent node down to the horizontal sibling bar */
+.org-tree ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 1.25rem;
+  background: #3a3a3a;
+}
+
+/* Root ul has no parent, so no vertical line above */
+.org-tree > ul {
+  padding-top: 0;
+}
+.org-tree > ul::before {
+  display: none;
+}
+
+/* Each sibling node */
+.org-tree li {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 0.375rem;
+}
+
+/* Left half of horizontal sibling bar */
+.org-tree li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 1px;
+  background: #3a3a3a;
+}
+
+/* Right half of horizontal sibling bar */
+.org-tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 1px;
+  background: #3a3a3a;
+}
+
+/* Only child / first child / last child – trim the horizontal bar */
+.org-tree li:only-child::before,
+.org-tree li:only-child::after { display: none; }
+.org-tree li:first-child::before { display: none; }
+.org-tree li:last-child::after  { display: none; }
+
+/* Root-level nodes need no horizontal bar at all */
+.org-tree > ul > li::before,
+.org-tree > ul > li::after { display: none; }
+
+/* Vertical drop-line from horizontal bar to the node box */
+.org-tree .tree-node {
+  position: relative;
+  margin-top: 1.25rem;
+}
+.org-tree .tree-node::before {
+  content: '';
+  position: absolute;
+  top: -1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 1.25rem;
+  background: #3a3a3a;
+}
+
+/* Root nodes have no parent line above */
+.org-tree > ul > li > .tree-node {
+  margin-top: 0;
+}
+.org-tree > ul > li > .tree-node::before {
+  display: none;
+}

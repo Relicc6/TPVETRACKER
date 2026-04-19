@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
-import { ChevronDown, ChevronUp, ChevronRight, Search, Shield } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, Shield } from 'lucide-react'
 import type { Task, TaskProgressMap, TaskStatus } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadKappaItems, saveKappaItems } from '@/lib/progress'
 
@@ -186,78 +186,48 @@ function KappaTaskCard({ task, status, onCycle }: TaskCardProps) {
   )
 }
 
-// ── Tree node component (compact single-line row) ──
+// ── Org-chart tree node (ul/li structure, styled by globals.css .org-tree) ──
 
-function KappaTreeNode({ node, progress, onCycle }: {
+function OrgTreeNode({ node, progress, onCycle }: {
   node: TreeNode
   progress: TaskProgressMap
   onCycle: (id: string) => void
 }) {
   const status = (progress[node.task.id] ?? 'not_started') as TaskStatus
-  // Completed tasks start collapsed; incomplete start expanded
-  const [expanded, setExpanded] = useState(status !== 'completed')
-
-  const dot: Record<TaskStatus, string> = {
-    completed: 'bg-tarkov-green',
-    in_progress: 'bg-blue-400',
-    not_started: 'bg-tarkov-border',
-    locked: 'bg-tarkov-border/30',
-  }
 
   return (
-    <div>
-      <div className={`flex items-center gap-2 py-1.5 px-2 rounded group hover:bg-tarkov-surface/60 transition-colors ${status === 'completed' ? 'opacity-40' : ''}`}>
-        {/* Expand / collapse or leaf indicator */}
-        <div className="w-4 flex-shrink-0 flex items-center justify-center">
-          {node.children.length > 0 ? (
-            <button onClick={() => setExpanded(e => !e)} className="text-tarkov-muted hover:text-tarkov-yellow transition-colors">
-              {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            </button>
-          ) : (
-            <div className="w-1 h-1 rounded-full bg-tarkov-border/40 mx-auto" />
-          )}
-        </div>
-
-        {/* Status dot */}
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dot[status]}`} />
-
-        {/* Task name */}
-        <span className={`text-sm flex-1 min-w-0 truncate ${status === 'completed' ? 'line-through text-tarkov-muted' : 'text-tarkov-text'}`}>
-          {node.task.name}
-        </span>
-
-        {/* Trader name */}
-        <span className="text-xs text-tarkov-yellow/70 flex-shrink-0 hidden sm:block">{node.task.trader.name}</span>
-
-        {/* Checkbox — always visible when done/in-progress, hover-only otherwise */}
+    <li>
+      <div className="tree-node" style={{ width: '9rem' }}>
         <button
           onClick={() => onCycle(node.task.id)}
-          className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all ${
+          title={`${node.task.name} — ${STATUS_LABELS[status]} (click to cycle)`}
+          className={`w-full text-left rounded border px-2 py-1.5 transition-all ${
             status === 'completed'
-              ? 'bg-tarkov-green border-tarkov-green'
+              ? 'bg-tarkov-green-dark/20 border-tarkov-green/40 opacity-50'
               : status === 'in_progress'
-              ? 'bg-blue-400/30 border-blue-400'
-              : 'border-tarkov-border hover:border-tarkov-yellow opacity-0 group-hover:opacity-100'
+              ? 'bg-tarkov-blue/10 border-tarkov-blue/50 hover:border-tarkov-blue'
+              : 'bg-tarkov-card border-tarkov-border hover:border-tarkov-yellow/60'
           }`}
-          title="Cycle status"
         >
-          {status === 'completed' && (
-            <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5" stroke="currentColor" strokeWidth="2">
-              <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-          {status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-sm bg-blue-400" />}
+          <div className="flex items-start gap-1.5">
+            <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
+              status === 'completed' ? 'bg-tarkov-green' : status === 'in_progress' ? 'bg-blue-400' : 'bg-tarkov-border/60'
+            }`} />
+            <span className={`text-xs font-medium leading-tight ${status === 'completed' ? 'line-through text-tarkov-muted' : 'text-tarkov-text'}`}>
+              {node.task.name}
+            </span>
+          </div>
+          <div className="mt-0.5 text-tarkov-yellow/60 text-[10px] pl-3.5 truncate">{node.task.trader.name}</div>
         </button>
       </div>
-
-      {expanded && node.children.length > 0 && (
-        <div className="ml-4 pl-3 border-l border-tarkov-border/30">
+      {node.children.length > 0 && (
+        <ul>
           {node.children.map(child => (
-            <KappaTreeNode key={child.task.id} node={child} progress={progress} onCycle={onCycle} />
+            <OrgTreeNode key={child.task.id} node={child} progress={progress} onCycle={onCycle} />
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </li>
   )
 }
 
@@ -515,16 +485,20 @@ export default function KappaTracker({ tasks }: { tasks: Task[] }) {
 
       {/* Dependency Tree tab */}
       {tab === 'tree' && (
-        <div className="space-y-1">
-          <p className="text-xs text-tarkov-muted mb-3">
-            Prerequisite chains — completing a task unlocks its dependents. Click the arrow to collapse branches.
+        <div>
+          <p className="text-xs text-tarkov-muted mb-4">
+            Prerequisite chains flowing down to Collector. Click any task to cycle its status — completing auto-marks all prerequisites.
           </p>
           {kappaTree.length === 0 ? (
             <div className="card text-center text-tarkov-muted py-10 text-sm">No tree data available.</div>
           ) : (
-            kappaTree.map(node => (
-              <KappaTreeNode key={node.task.id} node={node} progress={progress} onCycle={cycleStatus} />
-            ))
+            <div className="org-tree">
+              <ul>
+                {kappaTree.map(node => (
+                  <OrgTreeNode key={node.task.id} node={node} progress={progress} onCycle={cycleStatus} />
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}
