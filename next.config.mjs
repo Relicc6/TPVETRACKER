@@ -4,6 +4,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'assets.tarkov.dev' },
       { protocol: 'https', hostname: '*.tarkov.dev' },
+      { protocol: 'https', hostname: 'tarkov.dev' },
     ],
   },
 }

@@ -22,7 +22,7 @@ export async function fetchTasks(): Promise<Task[]> {
         id
         name
         normalizedName
-        trader { id name }
+        trader { id name imageLink normalizedName }
         minPlayerLevel
         experience
         map { name }

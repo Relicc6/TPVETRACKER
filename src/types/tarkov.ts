@@ -1,6 +1,8 @@
 export interface Trader {
   id: string
   name: string
+  imageLink: string | null
+  normalizedName: string
 }
 
 export interface TaskObjective {

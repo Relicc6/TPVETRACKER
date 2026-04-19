@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Image from 'next/image'
 import { ChevronDown, ChevronUp, Search, Shield } from 'lucide-react'
 import type { Task, TaskProgressMap } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress } from '@/lib/progress'
@@ -17,26 +18,25 @@ function KappaTaskCard({ task, status, onCycle }: KappaTaskCardProps) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-50' : ''}`}>
+    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''}`}>
       <div className="flex items-start gap-3">
-        <button
-          onClick={onCycle}
-          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-            status === 'completed'
-              ? 'bg-tarkov-green border-tarkov-green'
-              : status === 'in_progress'
-              ? 'bg-tarkov-blue/30 border-tarkov-blue'
-              : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
-          }`}
-          title="Cycle status"
-        >
-          {status === 'completed' && (
-            <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
-              <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* Trader portrait */}
+        <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
+          {task.trader.imageLink ? (
+            <Image
+              src={task.trader.imageLink}
+              alt={task.trader.name}
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-tarkov-muted text-xs font-bold">
+              {task.trader.name[0]}
+            </div>
           )}
-          {status === 'in_progress' && <div className="w-2 h-2 rounded-sm bg-blue-400" />}
-        </button>
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -45,7 +45,7 @@ function KappaTaskCard({ task, status, onCycle }: KappaTaskCardProps) {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-tarkov-muted">
-            <span className="text-tarkov-yellow">{task.trader.name}</span>
+            <span className="text-tarkov-yellow font-medium">{task.trader.name}</span>
             {task.map && <span>{task.map.name}</span>}
             {task.minPlayerLevel > 0 && <span>Lvl {task.minPlayerLevel}+</span>}
             {task.experience > 0 && <span className="text-purple-400">{task.experience.toLocaleString()} XP</span>}
@@ -72,6 +72,26 @@ function KappaTaskCard({ task, status, onCycle }: KappaTaskCardProps) {
             </ul>
           )}
         </div>
+
+        {/* Checkbox */}
+        <button
+          onClick={onCycle}
+          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+            status === 'completed'
+              ? 'bg-tarkov-green border-tarkov-green'
+              : status === 'in_progress'
+              ? 'bg-tarkov-blue/30 border-tarkov-blue'
+              : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
+          }`}
+          title="Cycle status"
+        >
+          {status === 'completed' && (
+            <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
+              <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+          {status === 'in_progress' && <div className="w-2 h-2 rounded-sm bg-blue-400" />}
+        </button>
       </div>
     </div>
   )

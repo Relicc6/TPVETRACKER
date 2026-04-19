@@ -43,27 +43,29 @@ function ItemRow({ item, watched, onToggleWatch }: ItemRowProps) {
   const buy = bestVendorBuy(item)
 
   return (
-    <div className="card flex flex-col sm:flex-row sm:items-center gap-3">
+    <div className="card flex flex-col sm:flex-row sm:items-center gap-4">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {item.iconLink ? (
-          <Image
-            src={item.iconLink}
-            alt={item.shortName}
-            width={40}
-            height={40}
-            className="object-contain flex-shrink-0 rounded bg-tarkov-surface"
-            unoptimized
-          />
-        ) : (
-          <div className="w-10 h-10 rounded bg-tarkov-surface flex-shrink-0" />
-        )}
+        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-tarkov-surface border border-tarkov-border/50 flex items-center justify-center overflow-hidden">
+          {item.iconLink ? (
+            <Image
+              src={item.iconLink}
+              alt={item.shortName}
+              width={48}
+              height={48}
+              className="object-contain w-full h-full p-0.5"
+              unoptimized
+            />
+          ) : (
+            <span className="text-tarkov-muted text-xs font-mono">{item.shortName.slice(0, 3)}</span>
+          )}
+        </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-tarkov-text truncate">{item.name}</span>
-            <span className="text-xs text-tarkov-muted">{item.shortName}</span>
+            <span className="text-xs bg-tarkov-surface border border-tarkov-border/50 rounded px-1.5 py-0.5 text-tarkov-muted font-mono">{item.shortName}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 mt-0.5">
-            <span className="text-tarkov-yellow font-mono text-sm">{formatPrice(item.avg24hPrice)}</span>
+          <div className="flex flex-wrap items-center gap-3 mt-1">
+            <span className="text-tarkov-yellow font-mono text-sm font-bold">{formatPrice(item.avg24hPrice)}</span>
             <PriceChange pct={item.changeLast48hPercent} />
             {item.lastLowPrice && (
               <span className="text-xs text-tarkov-muted">Low: {formatPrice(item.lastLowPrice)}</span>
@@ -72,24 +74,24 @@ function ItemRow({ item, watched, onToggleWatch }: ItemRowProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
+      <div className="flex items-center gap-4 text-xs">
         {sell && (
-          <div className="text-center">
-            <p className="text-tarkov-muted">Best Sell</p>
-            <p className="text-green-400 font-mono">{formatPrice(sell.priceRUB)}</p>
+          <div className="text-center min-w-[72px]">
+            <p className="text-tarkov-muted mb-0.5">Best Sell</p>
+            <p className="text-green-400 font-mono font-bold">{formatPrice(sell.priceRUB)}</p>
             <p className="text-tarkov-muted">{sell.vendor.name}</p>
           </div>
         )}
         {buy && (
-          <div className="text-center">
-            <p className="text-tarkov-muted">Trader Buy</p>
-            <p className="text-blue-400 font-mono">{formatPrice(buy.priceRUB)}</p>
+          <div className="text-center min-w-[72px]">
+            <p className="text-tarkov-muted mb-0.5">Trader Buy</p>
+            <p className="text-blue-400 font-mono font-bold">{formatPrice(buy.priceRUB)}</p>
             <p className="text-tarkov-muted">{buy.vendor.name}</p>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:ml-2">
         {item.wikiLink && (
           <a
             href={item.wikiLink}

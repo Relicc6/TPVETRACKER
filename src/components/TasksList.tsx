@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Image from 'next/image'
 import { ChevronDown, ChevronUp, Search, Filter, Lock, Zap } from 'lucide-react'
 import type { Task, TaskStatus, TaskProgressMap } from '@/types/tarkov'
 import { loadTaskProgress, saveTaskProgress, loadPlayerLevel, savePlayerLevel } from '@/lib/progress'
@@ -96,30 +97,25 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
   const locked = status === 'locked'
 
   return (
-    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-50' : ''} ${locked ? 'opacity-40' : ''}`}>
+    <div className={`card transition-all duration-150 ${status === 'completed' ? 'opacity-40' : ''} ${locked ? 'opacity-35' : ''}`}>
       <div className="flex items-start gap-3">
-        <button
-          onClick={locked ? undefined : onCycle}
-          disabled={locked}
-          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-            locked
-              ? 'bg-tarkov-surface border-tarkov-border/40 cursor-not-allowed'
-              : status === 'completed'
-              ? 'bg-tarkov-green border-tarkov-green'
-              : status === 'in_progress'
-              ? 'bg-tarkov-blue/30 border-tarkov-blue'
-              : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
-          }`}
-          title={locked ? `Requires level ${task.minPlayerLevel}` : `Mark as ${MANUAL_CYCLE[(MANUAL_CYCLE.indexOf(status as typeof MANUAL_CYCLE[number]) + 1) % 3]}`}
-        >
-          {locked && <Lock size={9} className="text-tarkov-muted/60" />}
-          {status === 'completed' && (
-            <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
-              <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* Trader portrait */}
+        <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-tarkov-surface border border-tarkov-border/50">
+          {task.trader.imageLink ? (
+            <Image
+              src={task.trader.imageLink}
+              alt={task.trader.name}
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-tarkov-muted text-xs font-bold">
+              {task.trader.name[0]}
+            </div>
           )}
-          {status === 'in_progress' && <div className="w-2 h-2 rounded-sm bg-blue-400" />}
-        </button>
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -130,7 +126,7 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-tarkov-muted">
-            <span className="text-tarkov-yellow">{task.trader.name}</span>
+            <span className="text-tarkov-yellow font-medium">{task.trader.name}</span>
             {task.map && <span>{task.map.name}</span>}
             {task.minPlayerLevel > 0 && (
               <span className={locked ? 'text-red-400/70' : ''}>Lvl {task.minPlayerLevel}+</span>
@@ -164,6 +160,30 @@ function TaskCard({ task, status, onCycle }: TaskCardProps) {
             </ul>
           )}
         </div>
+
+        {/* Checkbox */}
+        <button
+          onClick={locked ? undefined : onCycle}
+          disabled={locked}
+          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+            locked
+              ? 'bg-tarkov-surface border-tarkov-border/40 cursor-not-allowed'
+              : status === 'completed'
+              ? 'bg-tarkov-green border-tarkov-green'
+              : status === 'in_progress'
+              ? 'bg-tarkov-blue/30 border-tarkov-blue'
+              : 'bg-transparent border-tarkov-border hover:border-tarkov-yellow'
+          }`}
+          title={locked ? `Requires level ${task.minPlayerLevel}` : `Mark as ${MANUAL_CYCLE[(MANUAL_CYCLE.indexOf(status as typeof MANUAL_CYCLE[number]) + 1) % 3]}`}
+        >
+          {locked && <Lock size={9} className="text-tarkov-muted/60" />}
+          {status === 'completed' && (
+            <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
+              <path d="M1 4l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+          {status === 'in_progress' && <div className="w-2 h-2 rounded-sm bg-blue-400" />}
+        </button>
       </div>
     </div>
   )
