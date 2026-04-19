@@ -418,6 +418,14 @@ export default function TasksList({ tasks }: { tasks: Task[] }) {
     const next = MANUAL_CYCLE[((idx === -1 ? 0 : idx) + 1) % MANUAL_CYCLE.length]
     setManualProgress(prev => {
       const updated = { ...prev, [taskId]: next }
+      // When marking complete, cascade to all transitive prerequisites
+      if (next === 'completed') {
+        const prereqMap = buildPrereqMap(tasks)
+        const prereqs = collectPrereqs([taskId], prereqMap)
+        prereqs.forEach(prereqId => {
+          if (updated[prereqId] !== 'completed') updated[prereqId] = 'completed'
+        })
+      }
       saveTaskProgress(updated)
       return updated
     })
